@@ -2,7 +2,7 @@
   (:require [jargh.core :refer [create-uberjar]]
             [badigeon.classpath :as classpath]
             [badigeon.compile :as compile]
-            [tools.cli :refer [parse-opts]]))
+            [clojure.tools.cli :refer [parse-opts]]))
 
 (def options
   [["-m" "--main MAIN" "Namespace containing a -main function. Implies --manifest Main-Class=MAIN."]
