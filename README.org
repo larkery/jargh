@@ -8,16 +8,17 @@ Another jar packer; this is based off the code in [[https://github.com/seancorfi
 
 I haven't found anyone else's jar packer to work for me, and [[https://xkcd.com/927/][XKCD number 927]].
 
-Specific features I wanted. Other people's work seems to do some of these but not all.
+Specific features I wanted. 
 
 - Ability to specify which deps.edn aliases go on the classpath.
   Most other packers have done things like including all the dependencies specified /to run the packer/.
-
   Jargh does not embed itself into your jar, for example.
 - Ability to say specific things to include, exclude and merge
 - Ability to AOT compile, for a runnable jar
 - Ability to make a manifest
 - Quieter collision handling: doesn't report a collision for files that occur more than once but are identical.
+
+Other people's work seems to do some of these but not all; using other tools I either ended up with stuff in the jar I didn't want, or a non-runnable jar, or I had to fork the thing to add some extra files to the list of things to merge or ignore.
 
 * How?
 
