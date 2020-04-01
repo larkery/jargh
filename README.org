@@ -14,11 +14,10 @@ Specific features I wanted. Other people's work seems to do some of these but no
   Most other packers have done things like including all the dependencies specified /to run the packer/.
 
   Jargh does not embed itself into your jar, for example.
-
+- Ability to say specific things to include, exclude and merge
 - Ability to AOT compile, for a runnable jar
 - Ability to make a manifest
-- Possibly sane collision handling; doesn't report collisions for repetitions of files if they are identical.
-  For true collisions, first always wins.
+- Quieter collision handling: doesn't report a collision for files that occur more than once but are identical.
 
 * How?
 
