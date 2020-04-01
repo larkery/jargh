@@ -28,13 +28,13 @@ Specific features I wanted. Other people's work seems to do some of these but no
 
           :main-opts ["-m" "jargh.main"
                       "-m" "my.app.core"
-                      "-c"
                       "target/output.jar"]}}}
 
 #+END_SRC
 
 #+BEGIN_SRC sh
 $ clojure -A:jar
+$ java -jar target/output.jar
 #+END_SRC
 
 * Arguments
