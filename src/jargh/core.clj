@@ -14,6 +14,20 @@
            [java.nio.file.attribute BasicFileAttributes FileAttribute]
            [java.util.jar JarInputStream JarOutputStream JarEntry Manifest Attributes]))
 
+(def ^:dynamic *log*
+  (proxy [java.io.Writer] []
+    (write [buf] nil)
+    (close []    nil)
+    (flush []    nil)))
+
+(defn log [& args]
+  (binding [*out* *log*]
+    (apply println args)))
+
+(defn- err [& args]
+  (binding [*out* *err*]
+    (apply println args)))
+
 (defonce ^FileSystem FS (FileSystems/getDefault))
 
 (defn md5 [input]
@@ -72,7 +86,7 @@
     (Files/walkFileTree src vis)))
 
 (defmethod map-classpath :not-found [_ src]
-  (binding [*out* System/err]
+  (binding [*out* *err*]
     (println "Not able to get contents for" src)))
 
 (defn write-jar
@@ -103,7 +117,7 @@
                           #"(?i)META-INF/.*\.(?:MF|SF|RSA|DSA)"
                           #"(?i)META-INF/(?:INDEX\.LIST|DEPENDENCIES|NOTICE|LICENSE)(?:\.txt)?"})
 
-(def default-skip-jars #{#"depstar"})
+(def default-skip-jars #{})
 
 (defn merge-edn [target in]
   (let [er #(with-open [r (PushbackReader. %)] (edn/read r))
@@ -122,17 +136,23 @@
                           (conj "\n")
                           (into f2)))))))
 
-(defn default-merge-strategy [name]
-  (cond
-    (= "data_readers.clj" name)
-    merge-edn
-    
-    (or (= "META-INF/registryFile.jaiext" name)
-        (= "META-INF/registryFile.jai" name) ;; maybe
-        (re-find #"^META-INF/services/" name))
-    concat-lines
-    
-    :else nil))
+(def default-merge-strategies
+  [[#"^data_readers\.clj$" #'merge-edn]
+   [#"^META-INF/(services/|registryFile.jaiext$|registryFile.jai$)" #'concat-lines]
+   ]
+  )
+
+(defn regex-list-merge-strategy [regex-list]
+  (fn [name]
+    (first
+     (keep (fn [[re merger]]
+             (when (re-find re name)
+               (log "m     merge" name "with" merger)
+               merger))
+           regex-list))))
+
+(def default-merge-strategy
+  (regex-list-merge-strategy default-merge-strategies))
 
 (defn some-re [res]
   (let [res (filter identity res)]
@@ -146,23 +166,12 @@
                                        skip-jars
                                        skip-files
                                        merge-strategy
-                                       manifest
-                                       verbose]
+                                       manifest]
                                 :or {classpath (System/getProperty "java.class.path")
                                      skip-jars default-skip-jars
                                      skip-files default-skip-files
                                      merge-strategy default-merge-strategy}}]
-  (let [log (if verbose
-              (fn [& args]
-                (binding [*out* System/err]
-                  (apply println "log:" args)))
-              (fn [_]))
-
-        err (fn [& args]
-              (binding [*out* System/err]
-                (apply println "err:" args)))
-
-        classpath
+  (let [classpath
         (cond-> classpath
           (string? classpath)
           (-> (.split (System/getProperty "path.separator"))
@@ -190,7 +199,7 @@
           (map-classpath
            (fn [name is last-mod]
              (if (skip-files name)
-               (log "-" "skipped file" classpath-entry name)
+               (log "-     skipped file" name)
                (let [target (.resolve tmp name)]
                  (if (Files/exists target (make-array LinkOption 0))
                    ;; we must resolve a clash
@@ -205,9 +214,7 @@
                              ]
                          
                          (when-not (= m1 m2)
-                           (err "! conflict:" name)
-                           (log "-" classpath-entry m1)
-                           (log "+" (get @owners name) m2)))))
+                           (err "!     conflict:" name "overridden by" (get @owners name))))))
                    (do
                      (swap! owners assoc name classpath-entry)
                      (Files/createDirectories (.getParent target) (make-array FileAttribute 0))
@@ -218,7 +225,7 @@
            classpath-entry))))
 
     (when manifest
-      (log "Creating manifest")
+      (log "o manifest")
       (let [m (Manifest.)
             a (.getMainAttributes m)]
         (.put a java.util.jar.Attributes$Name/MANIFEST_VERSION "1.0.0")
@@ -236,9 +243,8 @@
           (with-open [o (jio/output-stream manifest-file)]
             (.write m o)))))
     
-    (log "Writing" target)
+    (log "o writing" target)
     (write-jar tmp (path target))
-    (log "Removing temporary files")
 
     (let [delete-files
           (fn delete-files [& fs]

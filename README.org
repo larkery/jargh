@@ -1,0 +1,54 @@
+#+TITLE: JARGH jar packer for clojure CLI
+
+* What?
+
+Another jar packer; this is based off the code in [[https://github.com/seancorfield/depstar][Sean Corfields fork of depstar]].
+
+* Why?
+
+I haven't found anyone else's jar packer to work for me, and [[https://xkcd.com/927/][XKCD number 927]].
+
+Specific features I wanted. Other people's work seems to do some of these but not all.
+
+- Ability to specify which deps.edn aliases go on the classpath.
+  Most other packers have done things like including all the dependencies specified /to run the packer/.
+
+  Jargh does not embed itself into your jar, for example.
+
+- Ability to AOT compile, for a runnable jar
+- Ability to make a manifest
+- Possibly sane collision handling; doesn't report collisions for repetitions of files if they are identical.
+  For true collisions, first always wins.
+
+* How?
+
+#+BEGIN_SRC clojure
+  {:aliases
+   {:jar {:extra-deps {larkery/jargh {:git/url "https://github.com/larkery/jargh.git"
+                                      :sha "It's hard to get the sha of a commit to appear in that commit"}}
+
+          :main-opts ["-m" "jargh.main"
+                      "-m" "my.app.core"
+                      "-c"
+                      "target/output.jar"]}}}
+
+#+END_SRC
+
+#+BEGIN_SRC sh
+$ clojure -A:jar
+#+END_SRC
+
+* Arguments
+
+- ~-m NS~ :: Specify a main namespace. Must have ~:gen-class~ and a ~-main~ function.
+             This implies ~-c NS~ and ~-M MainClass=NS~.
+- ~-a ALIAS~ :: Add the dependencies from ~ALIAS~ onto the classpath. Otherwise you get just the contents of ~:deps~ (can be repeated). Unfortunately I haven't replicated the syntax ~-A:this:that~ that ~clj~ takes, because ~clojure.tools.cli~ didn't make it immediately straightforward, so you need to say ~-a :this -a :that~.
+- ~-c NS~ :: AOT compile starting at NS (can be repeated)
+- ~--compile-to DIR~ :: AOT compile classes into ~DIR~ (default ~target/~)
+- ~-M K=V~ :: Add ~V~ to the manifest under key ~K~
+- ~--skip-file RE~ :: Skip files name matching RE
+- ~--skip-jar RE~ :: Skip classpath jars name matching RE
+- ~--merge-strategy RE=strat~ :: Merge conflicting files name matching RE using strategy ~strat~. Strat is a symbol which names a function of two files, which should merge the second into the first. Built-in you have ~jargh.core/concat-lines~ and ~jargh.core/merge-edn~, which see.
+- ~-v~ :: Verbose output of what's happening.
+
+Final unnamed argument is the path to the jar. Defaults to ~target/uber.jar~
